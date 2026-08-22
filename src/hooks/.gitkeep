@@ -1,0 +1,9 @@
+/**
+ * hooks/README.md placeholder — add custom React hooks here.
+ *
+ * Planned hooks:
+ *  useRestaurants()  — fetch and cache restaurant list (react-query or SWR)
+ *  useMenuItems(id)  — fetch menu for a specific restaurant
+ *  useOrderHistory() — fetch customer's past orders
+ *  useOwnerStatus()  — real-time open/closed toggle for owner dashboard
+ */

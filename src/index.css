@@ -1,0 +1,138 @@
+/* ============================================================
+   src/index.css  —  Kirba Bites global styles
+   ============================================================
+   This file sets up:
+   • Tailwind base / components / utilities layers
+   • CSS custom properties that mirror the Tailwind tokens
+     (useful for inline styles and SVG fills)
+   • Global resets and base typography
+   • Utility classes that can't easily be expressed as Tailwind
+     utilities (e.g., the script underline swash, reduced-motion)
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS custom properties (mirrors Tailwind brand tokens) ─── */
+:root {
+  --color-cream:        #FBF0E1;
+  --color-cream-dark:   #F5E3C8;
+  --color-cream-muted:  #EDD9B8;
+  --color-forest:       #1D3B2A;
+  --color-forest-light: #2A5440;
+  --color-burntorange:  #D9711A;
+  --color-ink:          #1A1A12;
+  --color-ink-muted:    #5C5746;
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-script:  "Dancing Script", cursive;
+  --font-body:    "Inter", system-ui, sans-serif;
+}
+
+/* ─── Base reset & defaults ────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Headings default to the display (serif) font */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    line-height: 1.2;
+  }
+
+  /* Focus-visible ring in brand colour */
+  :focus-visible {
+    outline: 2px solid var(--color-burntorange);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+/* ─── Component layer: reusable patterns ───────────────────── */
+@layer components {
+  /* ── Wordmark: "Bites" script underline swash ─────────────
+     The swash is a CSS-drawn curved underline using a
+     background gradient arc — reusable wherever the wordmark
+     appears (landing page, navbar compact version, etc.).       */
+  .bites-swash {
+    position: relative;
+    display: inline-block;
+  }
+
+  .bites-swash::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: -4px;
+    right: -8px;
+    height: 12px;
+    /* Hand-drawn swoosh: SVG data-URI curve in burntorange */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 16' preserveAspectRatio='none'%3E%3Cpath d='M4 10 Q40 2 100 10 Q160 18 196 6' stroke='%23D9711A' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    pointer-events: none;
+  }
+
+  /* ── Tagline flanking rules & dot accents ─────────────────
+     Used on landing page; the pseudo-elements draw the thin
+     horizontal rules left and right of the tagline text.        */
+  .tagline-rule {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    white-space: nowrap;
+  }
+
+  .tagline-rule::before,
+  .tagline-rule::after {
+    content: "· ─────";
+    font-size: 0.7rem;
+    color: var(--color-forest);
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  .tagline-rule::after {
+    content: "───── ·";
+  }
+}
+
+/* ─── Utility layer: one-off helpers ───────────────────────── */
+@layer utilities {
+  /* Honour the user's reduced-motion preference — disables all
+     purely decorative animations site-wide.                    */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Gradient text helper (forest green → burntorange) */
+  .text-brand-gradient {
+    background: linear-gradient(135deg, var(--color-forest) 0%, var(--color-burntorange) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

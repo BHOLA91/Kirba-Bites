@@ -1,0 +1,10 @@
+/**
+ * utils/README.md placeholder — add helper functions here.
+ *
+ * Planned utilities:
+ *  formatPrice(n)          — "₹45" formatting helper
+ *  formatRating(n)         — "4.2 ★" display string
+ *  isOpenNow(hours)        — returns bool based on opening hours object
+ *  truncate(str, len)      — safe string truncation for menu descriptions
+ *  classNames(...classes)  — conditional className merging utility
+ */
