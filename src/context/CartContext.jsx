@@ -25,6 +25,7 @@ import { createContext, useContext, useReducer, useCallback } from "react";
 //   price:      number,
 //   quantity:   number,
 //   restaurantId: string,
+//   restaurantName: string,
 // }
 
 // ── Reducer ───────────────────────────────────────────────────
@@ -39,7 +40,7 @@ function cartReducer(state, action) {
           ...state,
           items: state.items.map((i) =>
             i.menuItemId === action.payload.menuItemId
-              ? { ...i, quantity: i.quantity + 1 }
+              ? { ...i, quantity: i.quantity + (action.payload.quantity || 1) }
               : i
           ),
         };
@@ -47,7 +48,8 @@ function cartReducer(state, action) {
       return {
         ...state,
         restaurantId: action.payload.restaurantId,
-        items: [...state.items, { ...action.payload, quantity: 1 }],
+        restaurantName: action.payload.restaurantName,
+        items: [...state.items, { ...action.payload, quantity: action.payload.quantity || 1 }],
       };
     }
 
@@ -77,12 +79,14 @@ function cartReducer(state, action) {
 
 const initialState = {
   restaurantId: null,
+  restaurantName: null,
   items: [],
 };
 
 // ── Context ───────────────────────────────────────────────────
 const CartContext = createContext({
   restaurantId: null,
+  restaurantName: null,
   items:        [],
   itemCount:    0,
   totalPrice:   0,
@@ -96,7 +100,20 @@ const CartContext = createContext({
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
-  const addItem    = useCallback((item) => dispatch({ type: "ADD_ITEM",        payload: item }),           []);
+  const addItem = useCallback(
+    (item) => {
+      if (state.restaurantId && state.restaurantId !== item.restaurantId) {
+        const confirmClear = window.confirm(
+          `Your cart has items from ${state.restaurantName || "another restaurant"}. Starting a new order will clear it — continue?`
+        );
+        if (!confirmClear) return;
+        dispatch({ type: "CLEAR_CART" });
+      }
+      dispatch({ type: "ADD_ITEM", payload: item });
+    },
+    [state.restaurantId, state.restaurantName]
+  );
+
   const removeItem = useCallback((id)   => dispatch({ type: "REMOVE_ITEM",     payload: id }),             []);
   const updateQty  = useCallback((id, qty) => dispatch({ type: "UPDATE_QUANTITY", payload: { menuItemId: id, quantity: qty } }), []);
   const clearCart  = useCallback(()    => dispatch({ type: "CLEAR_CART" }),                                []);
@@ -106,6 +123,7 @@ export function CartProvider({ children }) {
 
   const value = {
     restaurantId: state.restaurantId,
+    restaurantName: state.restaurantName,
     items:        state.items,
     itemCount,
     totalPrice,

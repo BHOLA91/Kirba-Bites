@@ -1,29 +1,14 @@
 /**
  * pages/Login.jsx  —  Customer login page
  * ─────────────────────────────────────────────────────────────────
- * Layout:
- *  • Cream background (matches landing page)
- *  • "EAT" watermark text — top-left, low-opacity display serif
- *  • "EXPLORE" watermark text — bottom-right, low-opacity display serif
- *  • Centered AuthCard glass panel containing:
- *      – KirbaWordmark (sm, no icon, no tagline)
- *      – Email + Password fields (show/hide toggle)
- *      – "Forgot password?" link (placeholder)
- *      – Login CTA button (forest green)
- *      – Divider
- *      – GoogleAuthButton
- *      – Link to Signup
- *
- * Validation (client-side, no backend needed):
- *  • Email: required + basic RFC format check
- *  • Password: required + min 6 chars
- *
- * Submit handler: logs form data and sets a stub success state.
- * Replace the TODO block with an api.js call when backend is ready.
+ * Wired to Supabase auth via services/auth.js.
+ * On success: redirects to /home.
+ * On failure: shows inline field/form errors.
  */
 
-import { useState } from "react";
-import { Link }     from "react-router-dom";
+import { useState }                              from "react";
+import { Link, useNavigate }                     from "react-router-dom";
+import { signInCustomer, signInWithGoogle }      from "../services/auth";
 
 import AuthCard         from "../components/auth/AuthCard";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -58,41 +43,49 @@ function EyeIcon({ open }) {
   );
 }
 
-// ── Divider ───────────────────────────────────────────────────────
-function OrDivider() {
-  return (
-    <div className="flex items-center gap-3 my-1" aria-hidden="true">
-      <hr className="flex-1 border-white/30" />
-      <span className="text-xs text-ink-faint font-body tracking-widest uppercase select-none">or</span>
-      <hr className="flex-1 border-white/30" />
-    </div>
-  );
-}
+// ── Watermark background words ────────────────────────────────────
+const bgWordStyle = {
+  position:   "absolute",
+  fontFamily: "'Playfair Display', serif",
+  fontWeight: 900,
+  fontSize:   "clamp(5rem, 14vw, 11rem)",
+  lineHeight: 1,
+  color:      "rgba(29,59,42,0.06)",
+  userSelect: "none",
+  pointerEvents: "none",
+  whiteSpace: "nowrap",
+};
 
-// ── Background watermark words ────────────────────────────────────
 function BgWords() {
-  const base =
-    "pointer-events-none select-none fixed font-display font-black leading-none " +
-    "text-forest/[0.055] hidden sm:block";
   return (
     <>
-      <span className={`${base} top-[-2vw] left-[-1vw] text-[22vw]`} aria-hidden="true">
-        EAT
-      </span>
-      <span className={`${base} bottom-[-3vw] right-[-1vw] text-[16vw]`} aria-hidden="true">
-        EXPLORE
-      </span>
+      <span style={{ ...bgWordStyle, top: "3%",  left: "-2%" }} aria-hidden="true">EAT</span>
+      <span style={{ ...bgWordStyle, bottom: "2%", right: "-2%" }} aria-hidden="true">EXPLORE</span>
     </>
   );
 }
 
+// ── Or divider ────────────────────────────────────────────────────
+function OrDivider() {
+  return (
+    <div className="flex items-center gap-3 my-1" aria-hidden="true">
+      <div className="flex-1 h-px bg-cream-muted" />
+      <span className="text-ink-faint text-xs font-body">or</span>
+      <div className="flex-1 h-px bg-cream-muted" />
+    </div>
+  );
+}
+
+
 // ── Main component ────────────────────────────────────────────────
 export default function Login() {
-  const [fields, setFields]     = useState({ email: "", password: "" });
-  const [errors, setErrors]     = useState({});
-  const [showPw, setShowPw]     = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
+  const [fields,    setFields]    = useState({ email: "", password: "" });
+  const [errors,    setErrors]    = useState({});
+  const [formError, setFormError] = useState("");
+  const [showPw,    setShowPw]    = useState(false);
+  const [loading,   setLoading]   = useState(false);
+
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -110,18 +103,23 @@ export default function Login() {
     }
 
     setLoading(true);
+    setFormError("");
     try {
-      // TODO: replace with real API call
-      // const { data } = await api.post("/auth/login", fields);
-      // AuthContext.login(data.user, data.token);
-      // navigate("/home");
-      console.log("[Login] submit →", fields);
-      await new Promise((r) => setTimeout(r, 800)); // stub latency
-      setSubmitted(true);
+      await signInCustomer({ email: fields.email, password: fields.password });
+      navigate("/home");
     } catch (err) {
-      setErrors({ form: "Login failed. Please check your credentials." });
+      setFormError(err.message || "Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    try {
+      await signInWithGoogle({ intendedRole: "customer" });
+      // Supabase handles the redirect; code below may not run
+    } catch (err) {
+      setFormError("Google sign-in failed. Please try again.");
     }
   }
 
@@ -148,20 +146,13 @@ export default function Login() {
           </p>
         </div>
 
-        {/* ── Stub success state ────────────────────────────── */}
-        {submitted ? (
-          <div className="text-center py-6">
-            <p className="text-forest font-body font-semibold text-sm">
-              ✓ Logged in! (stub — backend not connected yet)
-            </p>
-          </div>
-        ) : (
+
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
             {/* Form-level error */}
-            {errors.form && (
+            {formError && (
               <p role="alert" className="text-xs text-red-500 text-center font-body bg-red-50/60 rounded-lg py-2 px-3">
-                {errors.form}
+                {formError}
               </p>
             )}
 
@@ -237,10 +228,9 @@ export default function Login() {
             <OrDivider />
 
             {/* ── Google ─────────────────────────────────── */}
-            <GoogleAuthButton />
+            <GoogleAuthButton onClick={handleGoogle} />
 
           </form>
-        )}
 
         {/* ── Switch to Signup ─────────────────────────────── */}
         <p className="mt-8 text-center text-xs text-ink-muted font-body">

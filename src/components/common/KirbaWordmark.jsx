@@ -20,6 +20,10 @@
  *
  * Props:
  *  size       ("sm" | "md" | "lg") — scales font sizes
+ *  variant    ("default" | "on-dark") — color scheme:
+ *               "default"  → KIRBA in forest green  (light backgrounds)
+ *               "on-dark"  → KIRBA in cream          (dark backgrounds, e.g. Footer)
+ *               "Bites" stays burnt-orange in both variants.
  *  showIcon   (bool, default true)  — show/hide the cloche icon above
  *  showTagline (bool, default true) — show/hide the tagline rule
  *  className  (string)              — additional container classes
@@ -97,15 +101,17 @@ const SIZES = {
 // ── Component ─────────────────────────────────────────────────────
 export default function KirbaWordmark({
   size       = "lg",
+  variant    = "default",   // "default" | "on-dark"
   showIcon   = true,
   showTagline = true,
   className  = "",
 }) {
+  const isOnDark = variant === "on-dark";
   const s = SIZES[size] ?? SIZES.lg;
 
   return (
     <div
-      className={`flex flex-col items-center select-none ${className}`}
+      className={`flex flex-col items-start select-none ${className}`}
       aria-label="Kirba Bites"
     >
       {/* ── Cloche icon ──────────────────────────────────────────── */}
@@ -120,7 +126,7 @@ export default function KirbaWordmark({
           Using letter-spacing: -0.01em for tight premium feeling.    */}
       <div className={`leading-none tracking-tight ${s.gap}`}>
         <span
-          className={`font-display font-black text-forest leading-none ${s.kirba}`}
+          className={`font-display font-black leading-none ${s.kirba} ${isOnDark ? "text-cream" : "text-forest"}`}
           style={{ letterSpacing: "-0.015em" }}
         >
           {/* "K" + dotless-ı (U+0131) + "rba"
@@ -194,7 +200,7 @@ export default function KirbaWordmark({
           The .tagline-rule CSS class handles the rule pseudo-elements.*/}
       {showTagline && (
         <p
-          className={`tagline-rule text-forest font-body font-semibold uppercase tracking-[0.2em] mt-5 ${s.tagline}`}
+          className={`tagline-rule font-body font-semibold uppercase tracking-[0.2em] mt-5 ${s.tagline} ${isOnDark ? "text-cream/70" : "text-forest"}`}
           style={{ fontVariant: "small-caps" }}
         >
           Good Food. Great Choices.

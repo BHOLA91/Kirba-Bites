@@ -21,8 +21,9 @@
  * Replace the TODO block with api.js call when backend is ready.
  */
 
-import { useState, useMemo } from "react";
-import { Link }              from "react-router-dom";
+import { useState, useMemo }                      from "react";
+import { Link, useNavigate }                       from "react-router-dom";
+import { signUpCustomer, signInWithGoogle }        from "../services/auth";
 
 import AuthCard         from "../components/auth/AuthCard";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -161,38 +162,50 @@ const INITIAL = {
 
 // ── Main component ────────────────────────────────────────────────
 export default function Signup() {
-  const [fields, setFields]       = useState(INITIAL);
-  const [errors, setErrors]       = useState({});
-  const [showPw, setShowPw]       = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
+  const [fields,    setFields]    = useState(INITIAL);
+  const [errors,    setErrors]    = useState({});
+  const [formError, setFormError] = useState("");
+  const [showPw,    setShowPw]    = useState(false);
+  const [loading,   setLoading]   = useState(false);
 
   function handleChange(e) {
     const { name, value } = e.target;
     setFields((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    setFormError("");
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     const errs = validate(fields);
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
     setLoading(true);
+    setFormError("");
     try {
-      // TODO: replace with real API call
-      // const { data } = await api.post("/auth/signup", fields);
-      // AuthContext.login(data.user, data.token);
-      // navigate("/home");
-      console.log("[Signup] submit →", fields);
-      await new Promise((r) => setTimeout(r, 900)); // stub latency
-      setSubmitted(true);
+      await signUpCustomer({
+        email:     fields.email,
+        password:  fields.password,
+        firstName: fields.firstName,
+        lastName:  fields.lastName,
+        username:  fields.username,
+        address:   fields.address,
+      });
+      // If email confirmation is disabled, we have a session now
+      navigate("/home");
     } catch (err) {
-      setErrors({ form: "Sign up failed. Please try again." });
+      setFormError(err.message || "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    try {
+      await signInWithGoogle({ intendedRole: "customer" });
+    } catch (err) {
+      setFormError("Google sign-in failed. Please try again.");
     }
   }
 
@@ -219,20 +232,13 @@ export default function Signup() {
           </p>
         </div>
 
-        {/* ── Stub success ──────────────────────────────────── */}
-        {submitted ? (
-          <div className="text-center py-6">
-            <p className="text-forest font-body font-semibold text-sm">
-              ✓ Account created! (stub — backend not connected yet)
-            </p>
-          </div>
-        ) : (
+
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
             {/* Form-level error */}
-            {errors.form && (
+            {formError && (
               <p role="alert" className="text-xs text-red-500 text-center font-body bg-red-50/60 rounded-lg py-2 px-3">
-                {errors.form}
+                {formError}
               </p>
             )}
 
@@ -350,10 +356,9 @@ export default function Signup() {
             <OrDivider />
 
             {/* ── Google ─────────────────────────────────── */}
-            <GoogleAuthButton label="Sign up with Google" />
+            <GoogleAuthButton label="Sign up with Google" onClick={handleGoogle} />
 
           </form>
-        )}
 
         {/* ── Switch to Login ──────────────────────────────── */}
         <p className="mt-8 text-center text-xs text-ink-muted font-body">

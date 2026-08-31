@@ -33,8 +33,9 @@
  *  (AuthContext already scaffolded with role field — context/AuthContext.jsx)
  */
 
-import { useState } from "react";
-import { Link }     from "react-router-dom";
+import { useState }                                 from "react";
+import { Link, useNavigate }                        from "react-router-dom";
+import { signUpOwner, signInWithGoogle }            from "../services/auth";
 
 import AuthCard         from "../components/auth/AuthCard";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -196,11 +197,12 @@ const INITIAL = {
 
 // ── Main component ────────────────────────────────────────────────
 export default function OwnerSignup() {
-  const [fields, setFields]       = useState(INITIAL);
-  const [errors, setErrors]       = useState({});
-  const [showPw, setShowPw]       = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
+  const [fields,    setFields]    = useState(INITIAL);
+  const [errors,    setErrors]    = useState({});
+  const [formError, setFormError] = useState("");
+  const [showPw,    setShowPw]    = useState(false);
+  const [loading,   setLoading]   = useState(false);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -214,21 +216,33 @@ export default function OwnerSignup() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setLoading(true);
+    setFormError("");
     try {
-      // TODO (backend): POST /auth/owner/signup  { restaurantName, ownerName, email, phone, ruid, password }
-      //  ↳ Server validates R-UID uniqueness — return 409 if already taken
-      //  ↳ Returns JWT + owner profile on success
-      //  ↳ Set AuthContext: login(data.user, data.token) — role will be "owner"
-      //  ↳ navigate("/owner/dashboard")
-      console.log("[OwnerSignup] submit →", { ...fields, password: "[redacted]" });
-      await new Promise((r) => setTimeout(r, 900));
-      setSubmitted(true);
+      await signUpOwner({
+        email:          fields.email,
+        password:       fields.password,
+        ownerName:      fields.ownerName,
+        restaurantName: fields.restaurantName,
+        ruid:           fields.ruid,
+        phone:          fields.phone,
+      });
+      navigate("/owner/dashboard");
     } catch (err) {
-      // Handle 409 R-UID conflict when backend is ready:
-      // if (err.response?.status === 409) setErrors({ ruid: "This Restaurant ID is already taken." });
-      setErrors({ form: "Registration failed. Please try again." });
+      if (err.field === "ruid") {
+        setErrors((p) => ({ ...p, ruid: err.message }));
+      } else {
+        setFormError(err.message || "Registration failed. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    try {
+      await signInWithGoogle({ intendedRole: "owner" });
+    } catch (err) {
+      setFormError("Google sign-in failed. Please try again.");
     }
   }
 
@@ -256,19 +270,12 @@ export default function OwnerSignup() {
           </p>
         </div>
 
-        {/* Stub success */}
-        {submitted ? (
-          <div className="text-center py-6">
-            <p className="text-forest font-body font-semibold text-sm">
-              ✓ Restaurant registered! (stub — backend not connected yet)
-            </p>
-          </div>
-        ) : (
+
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
-            {errors.form && (
+            {formError && (
               <p role="alert" className="text-xs text-red-500 text-center font-body bg-red-50/60 rounded-lg py-2 px-3">
-                {errors.form}
+                {formError}
               </p>
             )}
 
@@ -383,10 +390,9 @@ export default function OwnerSignup() {
 
             <OrDivider />
 
-            <GoogleAuthButton label="Sign up with Google" />
+            <GoogleAuthButton label="Sign up with Google" onClick={handleGoogle} />
 
           </form>
-        )}
 
         {/* Switch to Owner Login */}
         <p className="mt-8 text-center text-xs text-ink-muted font-body">

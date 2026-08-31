@@ -1,74 +1,156 @@
 /**
- * context/AuthContext.jsx  —  Authentication context skeleton
- * ─────────────────────────────────────────────────────────────
- * Provides the logged-in user state to the entire app.
+ * context/AuthContext.jsx  —  Real Supabase-backed authentication context
+ * ──────────────────────────────────────────────────────────────────
+ * Wraps the whole app (see main.jsx). Exposes:
  *
- * Supports TWO account types:
- *   • "customer" — regular student browsing menus / placing orders
- *   • "owner"    — restaurant/stall owner managing their listing
+ *  user     — Supabase User object | null
+ *  profile  — public.profiles row | null (has role, name, etc.)
+ *  role     — "customer" | "owner" | null
+ *  isOwner  — bool
+ *  isCustomer — bool
+ *  loading  — true while initial session is being resolved on app load
+ *  signOut  — async fn, clears session
  *
- * TO WIRE UP THE BACKEND:
- *  1. Replace the stub login/logout functions with real API calls
- *     using api.js (e.g., POST /auth/login, POST /auth/owner/login).
- *  2. Store the JWT returned by the API in localStorage with key
- *     "kb_token" so the api.js interceptor picks it up automatically.
- *  3. Call socket.connect() after successful login if real-time is needed.
+ * NOTE: signUp and signIn are NOT exposed through context — import them
+ * directly from services/auth.js inside the page components that need
+ * them. Context exists to share the current session state; it doesn't
+ * need to own the auth *actions* (which update state via onAuthStateChange).
+ *
+ * Session flow:
+ *  1. On mount: getSession() → populate user + fetch profile
+ *  2. onAuthStateChange → keeps state in sync after login/logout/OAuth
+ *  3. signOut clears both user and profile
  */
 
-import { createContext, useContext, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { supabase }  from "../services/supabaseClient";
+import { signOut as authSignOut } from "../services/auth";
 
-// ── Context shape ─────────────────────────────────────────────
-const AuthContext = createContext({
-  user:    null,   // { id, name, email, role: "customer" | "owner" }
-  isLoggedIn: false,
-  isOwner: false,
-  login:   async () => {},
-  logout:  () => {},
-});
+// ── Context ───────────────────────────────────────────────────────
+const AuthContext = createContext(null);
 
-// ── Provider component ────────────────────────────────────────
+// ── Provider ──────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
-  // user shape: { id, name, email, role: "customer" | "owner", restaurantId? }
-  const [user, setUser] = useState(null);
+  const [user,    setUser]    = useState(null);
+  const [profile, setProfile] = useState(null);
+  // true until we've resolved the initial session on app load
+  const [loading, setLoading] = useState(true);
+
+  // Derived convenience values
+  const role       = profile?.role ?? null;
+  const isOwner    = role === "owner";
+  const isCustomer = role === "customer";
 
   /**
-   * login  —  stub; replace with real API call
-   * @param {string} email
-   * @param {string} password
-   * @param {"customer"|"owner"} role
+   * profileComplete — true only when the profile has a role AND the
+   * minimum required field for that role has been filled in.
+   *
+   * Customers  need: role + username (set during signup / OAuthComplete)
+   * Owners     need: role  (the restaurant row has r_uid; checking role is enough
+   *                  because the restaurant insert happens in the same transaction)
+   *
+   * A user whose profile.role is null is a first-time Google OAuth user who
+   * hasn't completed the onboarding form yet — they must go to /complete-profile.
    */
-  const login = useCallback(async (email, password, role = "customer") => {
-    // TODO: call api.post("/auth/login", { email, password, role })
-    // const { data } = await api.post("/auth/login", { email, password });
-    // localStorage.setItem("kb_token", data.token);
-    // setUser(data.user);
+  const profileComplete = !!(
+    profile?.role === "customer" ? profile.username : profile?.role === "owner"
+  );
 
-    // ── Temporary stub so UI doesn't crash during development ──
-    console.log("[AuthContext] login stub called", { email, role });
-    setUser({ id: "stub-1", name: "Student", email, role });
+  /** Fetch the profile row for a given userId from public.profiles */
+  const fetchProfile = useCallback(async (userId) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    if (!error && data) setProfile(data);
+    return data ?? null;
   }, []);
 
-  /** logout  —  clears session and redirects to landing */
-  const logout = useCallback(() => {
-    // TODO: optionally call api.post("/auth/logout")
-    localStorage.removeItem("kb_token");
+  useEffect(() => {
+    let mounted = true;
+
+    // ── 1. Resolve existing session on app load ────────────────
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    // ── 2. Listen for auth state changes ──────────────────────
+    // Fires on: login, logout, token refresh, OAuth redirect
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+      // Mark loading done on first event (covers OAuth redirect case)
+      setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
+
+  /** Sign out — clears session on Supabase and local state */
+  const signOut = useCallback(async () => {
+    await authSignOut();
     setUser(null);
+    setProfile(null);
   }, []);
+
+  /**
+   * refreshProfile — call this after completing OAuth profile setup
+   * (OAuthComplete.jsx) so AuthContext reflects the new role without
+   * needing a full re-login.
+   */
+  const refreshProfile = useCallback(async () => {
+    if (user) await fetchProfile(user.id);
+  }, [user, fetchProfile]);
 
   const value = {
     user,
+    profile,
+    role,
+    isOwner,
+    isCustomer,
+    profileComplete,
+    loading,
+    signOut,
+    refreshProfile,
+    // Legacy aliases (for any code still referencing the old shape)
     isLoggedIn: !!user,
-    isOwner:    user?.role === "owner",
-    login,
-    logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 }
 
-// ── Convenience hook ──────────────────────────────────────────
+// ── Hook ──────────────────────────────────────────────────────────
 export function useAuth() {
-  return useContext(AuthContext);
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used inside <AuthProvider>. " +
+      "Wrap your app in <AuthProvider> in main.jsx.");
+  }
+  return ctx;
 }
 
 export default AuthContext;

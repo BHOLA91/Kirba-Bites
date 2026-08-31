@@ -30,8 +30,9 @@
  *    (AuthContext already has a `role` field — see context/AuthContext.jsx)
  */
 
-import { useState } from "react";
-import { Link }     from "react-router-dom";
+import { useState }                                 from "react";
+import { Link, useNavigate }                        from "react-router-dom";
+import { signInOwnerByRuid, signInWithGoogle }      from "../services/auth";
 
 import AuthCard         from "../components/auth/AuthCard";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -120,11 +121,13 @@ function OwnerBadge() {
 
 // ── Main component ────────────────────────────────────────────────
 export default function OwnerLogin() {
-  const [fields, setFields]       = useState({ ruid: "", password: "" });
-  const [errors, setErrors]       = useState({});
-  const [showPw, setShowPw]       = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
+  const [fields,    setFields]    = useState({ ruid: "", password: "" });
+  const [errors,    setErrors]    = useState({});
+  const [formError, setFormError] = useState("");
+  const [showPw,    setShowPw]    = useState(false);
+  const [loading,   setLoading]   = useState(false);
+
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -138,20 +141,28 @@ export default function OwnerLogin() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setLoading(true);
+    setFormError("");
     try {
-      // TODO (backend): POST /auth/owner/login  { ruid, password }
-      //  ↳ Server looks up owner by R-UID, compares password hash
-      //  ↳ Returns JWT + owner profile
-      // const { data } = await api.post("/auth/owner/login", fields);
-      // AuthContext.login(data.user, data.token);  // role will be "owner"
-      // navigate("/owner/dashboard");
-      console.log("[OwnerLogin] submit →", { ruid: fields.ruid });
-      await new Promise((r) => setTimeout(r, 800));
-      setSubmitted(true);
+      await signInOwnerByRuid({ ruid: fields.ruid, password: fields.password });
+      navigate("/owner/dashboard");
     } catch (err) {
-      setErrors({ form: "Login failed. Check your Restaurant ID and password." });
+      if (err.field === "ruid") {
+        setErrors((p) => ({ ...p, ruid: err.message }));
+      } else if (err.field === "password") {
+        setErrors((p) => ({ ...p, password: err.message }));
+      } else {
+        setFormError(err.message || "Login failed. Check your Restaurant ID and password.");
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogle() {
+    try {
+      await signInWithGoogle({ intendedRole: "owner" });
+    } catch (err) {
+      setFormError("Google sign-in failed. Please try again.");
     }
   }
 
@@ -179,19 +190,12 @@ export default function OwnerLogin() {
           </p>
         </div>
 
-        {/* Stub success */}
-        {submitted ? (
-          <div className="text-center py-6">
-            <p className="text-forest font-body font-semibold text-sm">
-              ✓ Signed in! (stub — backend not connected yet)
-            </p>
-          </div>
-        ) : (
+
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
 
-            {errors.form && (
+            {formError && (
               <p role="alert" className="text-xs text-red-500 text-center font-body bg-red-50/60 rounded-lg py-2 px-3">
-                {errors.form}
+                {formError}
               </p>
             )}
 
@@ -250,10 +254,9 @@ export default function OwnerLogin() {
 
             <OrDivider />
 
-            <GoogleAuthButton label="Continue with Google" />
+            <GoogleAuthButton label="Continue with Google" onClick={handleGoogle} />
 
           </form>
-        )}
 
         {/* Switch to Owner Signup */}
         <p className="mt-8 text-center text-xs text-ink-muted font-body">
