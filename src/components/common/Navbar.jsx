@@ -16,6 +16,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useCart } from "../../context/CartContext";
 import KirbaWordmark from "./KirbaWordmark";
 
 // ── Cart icon (SVG) ───────────────────────────────────────────────
@@ -81,7 +82,8 @@ function AvatarBadge({ name = "" }) {
 
 // ── Main Navbar ───────────────────────────────────────────────────
 export default function Navbar() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, isOwner, signOut } = useAuth();
+  const { itemCount } = useCart();
   const navigate  = useNavigate();
 
   const [scrolled,       setScrolled]       = useState(false);
@@ -148,18 +150,21 @@ export default function Navbar() {
           </Link>
 
           {/* ── Center: Nav links (desktop) ────────────────────── */}
-          <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
-            <NavLink to="/home"    end className={navLinkClass}>Home</NavLink>
-            <NavLink to="/outlets" className={navLinkClass}>Outlets</NavLink>
-            <NavLink to="/home"    className={({ isActive: _ }) => navLinkClass({ isActive: false })}>Menu</NavLink>
-            <a
-              href="#footer"
-              className="relative font-body text-sm font-medium text-ink-muted
-                hover:text-forest transition-colors duration-150"
-            >
-              Contact
-            </a>
-          </nav>
+          {isOwner ? (
+            /* Owner nav: Home → dashboard, Contact only */
+            <nav className="hidden md:flex items-center gap-8" aria-label="Owner navigation">
+              <NavLink to="/owner/dashboard" className={navLinkClass}>Home</NavLink>
+              <NavLink to="/contact"         className={navLinkClass}>Contact</NavLink>
+            </nav>
+          ) : (
+            /* Customer nav: full set */
+            <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
+              <NavLink to="/home"    end className={navLinkClass}>Home</NavLink>
+              <NavLink to="/outlets" className={navLinkClass}>Outlets</NavLink>
+              <NavLink to="/menu"    className={navLinkClass}>Menu</NavLink>
+              <NavLink to="/contact" className={navLinkClass}>Contact</NavLink>
+            </nav>
+          )}
 
           {/* ── Right: icons + avatar ───────────────────────────── */}
           <div className="flex items-center gap-1 sm:gap-2">
@@ -193,23 +198,24 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Cart */}
-            <Link
-              to="/cart"
-              className="relative w-9 h-9 flex items-center justify-center rounded-xl
-                text-ink-muted hover:text-forest hover:bg-forest/8
-                transition-colors duration-150"
-              aria-label="Shopping cart"
-            >
-              <CartIcon />
-              {/* Cart badge — placeholder, wire to CartContext when ready */}
-              {false && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-burntorange
-                  text-cream text-[10px] font-bold rounded-full flex items-center justify-center">
-                  0
-                </span>
-              )}
-            </Link>
+            {/* Cart — hidden for owners (they don't order through the app) */}
+            {!isOwner && (
+              <Link
+                to="/cart"
+                className="relative w-9 h-9 flex items-center justify-center rounded-xl
+                  text-ink-muted hover:text-forest hover:bg-forest/8
+                  transition-colors duration-150"
+                aria-label="Shopping cart"
+              >
+                <CartIcon />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-burntorange
+                    text-cream text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* User avatar + dropdown */}
             <div ref={dropdownRef} className="relative">
@@ -288,12 +294,21 @@ export default function Navbar() {
             className="md:hidden border-t border-cream-muted py-3 pb-4 space-y-1 animate-fade-in"
             aria-label="Mobile navigation"
           >
-            {[
-              { label: "Home",    to: "/home" },
-              { label: "Cart",    to: "/cart" },
-              { label: "Orders",  to: "/orders" },
-              { label: "Account", to: "/account" },
-            ].map(({ label, to }) => (
+            {(isOwner
+              ? [
+                  { label: "Home",    to: "/owner/dashboard" },
+                  { label: "Contact", to: "/contact" },
+                  { label: "Account", to: "/account" },
+                ]
+              : [
+                  { label: "Home",    to: "/home" },
+                  { label: "Outlets", to: "/outlets" },
+                  { label: "Contact", to: "/contact" },
+                  { label: "Cart",    to: "/cart" },
+                  { label: "Orders",  to: "/orders" },
+                  { label: "Account", to: "/account" },
+                ]
+            ).map(({ label, to }) => (
               <NavLink
                 key={to}
                 to={to}

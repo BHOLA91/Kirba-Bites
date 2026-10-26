@@ -26,3 +26,31 @@ export async function getMenuItemsByRestaurant(restaurantId) {
 
   return data || [];
 }
+
+/**
+ * Fetch ALL menu items across every restaurant, joined with the parent
+ * restaurant's id, restaurant_name, and phone_number.
+ *
+ * Each returned row has the shape:
+ *   { id, restaurant_id, name, price, category, rating,
+ *     restaurants: { id, restaurant_name, phone_number } }
+ *
+ * @returns {Promise<Array>}
+ */
+export async function getAllMenuItems() {
+  const { data, error } = await supabase
+    .from("menu_items")
+    .select(
+      "id, restaurant_id, name, price, category, rating, " +
+      "restaurants ( id, restaurant_name, phone_number )"
+    )
+    .order("category")
+    .order("name");
+
+  if (error) {
+    console.error("[getAllMenuItems] error:", error.message);
+    throw new Error(error.message);
+  }
+
+  return data || [];
+}

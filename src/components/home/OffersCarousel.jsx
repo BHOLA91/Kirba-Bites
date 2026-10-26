@@ -26,6 +26,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { getOfferImage } from "../../utils/restaurantImageFallbacks";
+
+import hostelDeliveryImg from "../../assets/images/hostel-delivery-meals.jpg";
+import byobLoadedChipsImg from "../../assets/images/byob-loaded-chips.jpg";
 
 // ── Arrow buttons ─────────────────────────────────────────────────
 function ArrowBtn({ dir, onClick, disabled }) {
@@ -101,6 +105,13 @@ function SlideContent({ restaurant, animate }) {
   const offer = parseOffer(restaurant.offers, restaurant.restaurant_name);
   if (!offer) return null;
 
+  let imageSrc = getOfferImage(restaurant);
+  if (restaurant.restaurant_name === "Hot Momos") {
+    imageSrc = hostelDeliveryImg;
+  } else if (restaurant.restaurant_name === "WOW Fast Food Point") {
+    imageSrc = byobLoadedChipsImg;
+  }
+
   return (
     <div
       key={restaurant.id}
@@ -146,24 +157,15 @@ function SlideContent({ restaurant, animate }) {
         </Link>
       </div>
 
-      {/* Image side */}
+      {/* Image side — cuisine-matched Unsplash photo (decorative, beside text) */}
       <div className="shrink-0 w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 rounded-3xl overflow-hidden
         shadow-xl border-4 border-cream-muted/40 rotate-3 hover:rotate-0 transition-transform duration-500">
-        {restaurant.image_url ? (
-          <img
-            src={restaurant.image_url}
-            alt={restaurant.restaurant_name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center"
-            style={{ background: PLACEHOLDER_GRADIENT }}>
-            <span className="font-display font-black text-5xl text-burntorange/40 select-none">
-              {restaurant.restaurant_name?.[0] ?? "K"}
-            </span>
-          </div>
-        )}
+        <img
+          src={imageSrc}
+          alt={restaurant.restaurant_name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
       </div>
     </div>
   );

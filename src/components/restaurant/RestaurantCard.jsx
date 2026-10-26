@@ -13,6 +13,7 @@
  */
 
 import { Link } from "react-router-dom";
+import { getRestaurantImage } from "../../utils/restaurantImageFallbacks";
 
 // ── Star icon ─────────────────────────────────────────────────────
 function StarIcon() {
@@ -55,14 +56,22 @@ function inferTags(restaurant) {
 // When the menu_items or restaurant table supports ratings, fetch the
 // real rating and pass it to this component.
 
-// ── Placeholder gradient for missing images ───────────────────────
-const GRADIENTS = [
+// ── Last-resort gradient (only if network image also fails to load) ─
+const FALLBACK_GRADIENTS = [
   "linear-gradient(135deg, #F4D5B0 0%, #EDD9B8 100%)",
   "linear-gradient(135deg, #E8F0EB 0%, #D4E8DA 100%)",
   "linear-gradient(135deg, #FBE8D3 0%, #F4D5B0 100%)",
 ];
-function placeholderGradient(id = "") {
-  return GRADIENTS[id.charCodeAt(0) % GRADIENTS.length];
+function fallbackGradient(id = "") {
+  return FALLBACK_GRADIENTS[id.charCodeAt(0) % FALLBACK_GRADIENTS.length];
+}
+function handleImgError(e, id, name) {
+  // Replace broken img with a gradient+letter div
+  const parent = e.target.parentNode;
+  const div    = document.createElement("div");
+  div.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${fallbackGradient(id)}`;
+  div.innerHTML = `<span style="font-size:3.5rem;font-weight:900;color:rgba(29,59,42,0.20);user-select:none">${(name?.[0] ?? "K").toUpperCase()}</span>`;
+  parent.replaceChild(div, e.target);
 }
 
 // ── Main component ────────────────────────────────────────────────
@@ -93,24 +102,16 @@ export default function RestaurantCard({ restaurant, variant = "grid" }) {
     >
       {/* ── Image ───────────────────────────────────────────── */}
       <div className={`relative overflow-hidden ${isList ? "w-32 h-full flex-shrink-0" : "h-44 sm:h-48"}`}>
-        {image_url ? (
-          <img
-            src={image_url}
-            alt={restaurant_name}
-            className="w-full h-full object-cover group-hover:scale-105
-              transition-transform duration-500 ease-out"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: placeholderGradient(id) }}
-          >
-            <span className="font-display font-black text-6xl text-forest/20 select-none">
-              {restaurant_name?.[0]?.toUpperCase() ?? "K"}
-            </span>
-          </div>
-        )}
+        {/* Always render an <img>: real URL if set, else cuisine-matched Unsplash fallback.
+            onError last-resort: if even Unsplash fails, swap in gradient+letter. */}
+        <img
+          src={getRestaurantImage(restaurant)}
+          alt={restaurant_name}
+          className="w-full h-full object-cover group-hover:scale-105
+            transition-transform duration-500 ease-out"
+          loading="lazy"
+          onError={(e) => handleImgError(e, id, restaurant_name)}
+        />
 
         {/* Open/closed badge */}
         {!is_open && (

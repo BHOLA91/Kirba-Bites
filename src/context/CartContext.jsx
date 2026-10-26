@@ -18,15 +18,17 @@
 
 import { createContext, useContext, useReducer, useCallback } from "react";
 
-// ── Cart item shape ───────────────────────────────────────────
+// ── Cart item shape ───────────────────────────────────────────────
 // {
-//   menuItemId: string,
-//   name:       string,
-//   price:      number,
-//   quantity:   number,
-//   restaurantId: string,
-//   restaurantName: string,
+//   menuItemId:     string,   — menu_items.id (UUID, unique per row)
+//   name:           string,
+//   price:          number,
+//   quantity:       number,
+//   restaurantId:   string,   — kept for Cart page grouping
+//   restaurantName: string,   — kept for Cart page grouping
 // }
+//
+// Multi-restaurant: the cart may hold items from multiple outlets.
 
 // ── Reducer ───────────────────────────────────────────────────
 function cartReducer(state, action) {
@@ -34,12 +36,14 @@ function cartReducer(state, action) {
     case "ADD_ITEM": {
       const existing = state.items.find(
         (i) => i.menuItemId === action.payload.menuItemId
+          && i.restaurantId === action.payload.restaurantId
       );
       if (existing) {
         return {
           ...state,
           items: state.items.map((i) =>
-            i.menuItemId === action.payload.menuItemId
+            (i.menuItemId === action.payload.menuItemId
+              && i.restaurantId === action.payload.restaurantId)
               ? { ...i, quantity: i.quantity + (action.payload.quantity || 1) }
               : i
           ),
@@ -47,8 +51,6 @@ function cartReducer(state, action) {
       }
       return {
         ...state,
-        restaurantId: action.payload.restaurantId,
-        restaurantName: action.payload.restaurantName,
         items: [...state.items, { ...action.payload, quantity: action.payload.quantity || 1 }],
       };
     }
@@ -56,14 +58,18 @@ function cartReducer(state, action) {
     case "REMOVE_ITEM":
       return {
         ...state,
-        items: state.items.filter((i) => i.menuItemId !== action.payload),
+        items: state.items.filter(
+          (i) => !(i.menuItemId === action.payload.menuItemId
+            && i.restaurantId === action.payload.restaurantId)
+        ),
       };
 
     case "UPDATE_QUANTITY":
       return {
         ...state,
         items: state.items.map((i) =>
-          i.menuItemId === action.payload.menuItemId
+          (i.menuItemId === action.payload.menuItemId
+            && i.restaurantId === action.payload.restaurantId)
             ? { ...i, quantity: Math.max(0, action.payload.quantity) }
             : i
         ).filter((i) => i.quantity > 0),
@@ -78,22 +84,18 @@ function cartReducer(state, action) {
 }
 
 const initialState = {
-  restaurantId: null,
-  restaurantName: null,
   items: [],
 };
 
 // ── Context ───────────────────────────────────────────────────
 const CartContext = createContext({
-  restaurantId: null,
-  restaurantName: null,
-  items:        [],
-  itemCount:    0,
-  totalPrice:   0,
-  addItem:      () => {},
-  removeItem:   () => {},
-  updateQty:    () => {},
-  clearCart:    () => {},
+  items:      [],
+  itemCount:  0,
+  totalPrice: 0,
+  addItem:    () => {},
+  removeItem: () => {},
+  updateQty:  () => {},
+  clearCart:  () => {},
 });
 
 // ── Provider component ────────────────────────────────────────
@@ -102,29 +104,20 @@ export function CartProvider({ children }) {
 
   const addItem = useCallback(
     (item) => {
-      if (state.restaurantId && state.restaurantId !== item.restaurantId) {
-        const confirmClear = window.confirm(
-          `Your cart has items from ${state.restaurantName || "another restaurant"}. Starting a new order will clear it — continue?`
-        );
-        if (!confirmClear) return;
-        dispatch({ type: "CLEAR_CART" });
-      }
       dispatch({ type: "ADD_ITEM", payload: item });
     },
-    [state.restaurantId, state.restaurantName]
+    []
   );
 
-  const removeItem = useCallback((id)   => dispatch({ type: "REMOVE_ITEM",     payload: id }),             []);
-  const updateQty  = useCallback((id, qty) => dispatch({ type: "UPDATE_QUANTITY", payload: { menuItemId: id, quantity: qty } }), []);
-  const clearCart  = useCallback(()    => dispatch({ type: "CLEAR_CART" }),                                []);
+  const removeItem = useCallback((id)    => dispatch({ type: "REMOVE_ITEM",     payload: id }),             []);
+  const updateQty  = useCallback((id, qty, rId) => dispatch({ type: "UPDATE_QUANTITY", payload: { menuItemId: id, restaurantId: rId, quantity: qty } }), []);
+  const clearCart  = useCallback(()     => dispatch({ type: "CLEAR_CART" }),                                []);
 
   const itemCount  = state.items.reduce((acc, i) => acc + i.quantity, 0);
   const totalPrice = state.items.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
   const value = {
-    restaurantId: state.restaurantId,
-    restaurantName: state.restaurantName,
-    items:        state.items,
+    items:      state.items,
     itemCount,
     totalPrice,
     addItem,

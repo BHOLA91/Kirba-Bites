@@ -43,6 +43,8 @@ import Account          from "../pages/Account";
 import OwnerLogin       from "../pages/OwnerLogin";
 import OwnerSignup      from "../pages/OwnerSignup";
 import OwnerDashboard   from "../pages/OwnerDashboard";
+import Contact          from "../pages/Contact";
+import Menu             from "../pages/Menu";
 
 // ── Helper: wrap a page in ProtectedRoute + Layout ────────────────
 function AppPage({ children, requiredRole }) {
@@ -71,11 +73,13 @@ export default function AppRoutes() {
       {/* ── Customer routes ───────────────────────────────────── */}
       <Route path="/home"           element={<AppPage><Home /></AppPage>} />
       <Route path="/outlets"        element={<AppPage><Outlets /></AppPage>} />
+      <Route path="/menu"           element={<AppPage><Menu /></AppPage>} />
       <Route path="/restaurant/:id" element={<AppPage><RestaurantDetail /></AppPage>} />
       <Route path="/cart"           element={<AppPage><Cart /></AppPage>} />
       <Route path="/checkout"       element={<AppPage><Checkout /></AppPage>} />
       <Route path="/orders"         element={<AppPage><Orders /></AppPage>} />
       <Route path="/account"        element={<AppPage><Account /></AppPage>} />
+      <Route path="/contact"        element={<AppPage><Contact /></AppPage>} />
 
       {/* ── Owner routes ──────────────────────────────────────── */}
       <Route

@@ -9,15 +9,16 @@ import { useParams, Link } from "react-router-dom";
 import { getRestaurantById } from "../services/restaurants";
 import { getMenuItemsByRestaurant } from "../services/menuItems";
 import { useCart } from "../context/CartContext";
+import { getRestaurantImage } from "../utils/restaurantImageFallbacks";
 
-// ── Placeholder gradient for missing images ───────────────────────
-const GRADIENTS = [
+// ── Last-resort gradient (if Unsplash also fails to load) ───────────
+const FALLBACK_GRADIENTS = [
   "linear-gradient(135deg, #F4D5B0 0%, #EDD9B8 100%)",
   "linear-gradient(135deg, #E8F0EB 0%, #D4E8DA 100%)",
   "linear-gradient(135deg, #FBE8D3 0%, #F4D5B0 100%)",
 ];
-function placeholderGradient(id = "") {
-  return GRADIENTS[id.charCodeAt(0) % GRADIENTS.length] || GRADIENTS[0];
+function fallbackGradient(id = "") {
+  return FALLBACK_GRADIENTS[(id?.charCodeAt(0) ?? 0) % FALLBACK_GRADIENTS.length];
 }
 
 // ── Menu Item Card ────────────────────────────────────────────────
@@ -32,6 +33,7 @@ function MenuItemCard({ item, restaurant }) {
       quantity: 1,
       restaurantId: restaurant.id,
       restaurantName: restaurant.restaurant_name,
+      phoneNumber: restaurant.phone_number,
     });
   }
 
@@ -163,24 +165,18 @@ export default function RestaurantDetail() {
 
   return (
     <div className="min-h-screen bg-cream pb-32">
-      {/* ── Header Banner ──────────────────────────────────────── */}
+      {/* ── Header Banner ─────────────────────────────────────────── */}
       <div className="relative h-48 sm:h-72 w-full overflow-hidden">
-        {restaurant.image_url ? (
-          <img
-            src={restaurant.image_url}
-            alt={restaurant.restaurant_name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: placeholderGradient(restaurant.id) }}
-          >
-            <span className="font-display font-black text-7xl text-forest/20 select-none">
-              {restaurant.restaurant_name[0]?.toUpperCase()}
-            </span>
-          </div>
-        )}
+        {/* Always use getRestaurantImage — real upload or cuisine-matched Unsplash */}
+        <img
+          src={getRestaurantImage(restaurant)}
+          alt={restaurant.restaurant_name}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.style.display = "none";
+            e.target.parentNode.style.background = fallbackGradient(restaurant.id);
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
       </div>
 
